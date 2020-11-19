@@ -44,7 +44,7 @@ OPTIONS:
 
 Example:
 
-    $0 -f void-20150319.zfs.gz -k 3.14.36 -m 20150316T201553Z -n lx-void -v 20150319
+    $0 -f gentoo-20150319.zfs.gz -k 3.14.36 -m 20150316T201553Z -n lx-gentoo -v 20150319
 
 USAGE
 	exit 1

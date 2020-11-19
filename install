@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Install Void Linux into a directory, modify the installation, then tar it up.
+# Install Gentoo Linux into a directory, modify the installation, then tar it up.
 #
 
 #
@@ -27,16 +27,16 @@ fatal() {
 usage() {
 	cat <<-EOF
 
-	Install and modify Void in a given directory in a given directory using a given mirror
+	Install and modify Gentoo in a given directory in a given directory using a given mirror
 
 	Usage:
 	  $0 -a <arch> -d <dir> -m <mirror> -i <img> -p <name> -D <desc> -u <url>
 
 	Example:
-	  $0 -a x86_64-musl -d /data/void -m https://alpha.de.repo.voidlinux.org -i void -p "Void Linux" -D "Void 64-bit lx-brand image." -u https://docs.joyent.com/images/container-native-linux
+	  $0 -a x86_64-musl -d /data/gentoo -m https://alpha.de.repo.gentoolinux.org -i gentoo -p "Gentoo Linux" -D "Gentoo 64-bit lx-brand image." -u https://docs.joyent.com/images/container-native-linux
 
 	OPTIONS:
-	  -a <arch>     Void Linux arch to install - must be 'x86_64' (glibc) or 'x86_64-musl' (musl)
+	  -a <arch>     Gentoo Linux arch to install - must be 'x86_64' (glibc) or 'x86_64-musl' (musl)
 	  -D <desc>     A description for the image. This is used in the image manifest and the /etc/product file.
 	  -d <dir>      A path to the install directory
 	  -h            Show this message and exit
@@ -106,7 +106,7 @@ if [[ ${INSTALL_DIR:0:1} != '/' ]]; then
 	INSTALL_DIR=$PWD/$INSTALL_DIR
 fi
 
-echo "==> Installing Void into $INSTALL_DIR"
+echo "==> Installing Gentoo into $INSTALL_DIR"
 
 if [[ -d $INSTALL_DIR ]]; then
 	echo "====> Found previous chroot. Deleting and creating a new one."
@@ -122,7 +122,7 @@ if [[ -d $INSTALL_DIR ]]; then
 fi
 mkdir -p "$INSTALL_DIR"
 
-echo "===> Getting Void ..."
+echo "===> Getting Gentoo ..."
 
 if [[ ! -d tmp/ ]]; then
 	echo "===> creating tmp/ directory"
@@ -135,11 +135,11 @@ cd tmp/
 wget -O - "$MIRROR/static/xbps-static-latest.$(uname -m)-musl.tar.xz" | tar Jx
 bindir=$PWD/usr/bin
 
-echo "==> Adding void keys"
+echo "==> Adding gentoo keys"
 mkdir -p "$INSTALL_DIR/var/db/xbps/keys"
 cp ../keys/* "$INSTALL_DIR/var/db/xbps/keys/"
 
-echo "===> Installing Void base from $MIRROR"
+echo "===> Installing Gentoo base from $MIRROR"
 #  "--repository=$MIRROR/current/musl" \
 XBPS_ARCH=$ARCH "$bindir/xbps-install.static" -yMU \
 	"--repository=$MIRROR/current" \
@@ -168,7 +168,7 @@ echo 'en_US.UTF-8 UTF-8' >> "$INSTALL_DIR/etc/default/libc-locales"
 chroot "$INSTALL_DIR" xbps-reconfigure -f glibc-locales
 
 echo "==> Clearing unecessary runit services"
-msg='# cleared by void-lx-brand-image-builder'
+msg='# cleared by gentoo-lx-brand-image-builder'
 echo "$msg" > "$INSTALL_DIR/etc/runit/core-services/01-static-devnodes.sh"
 echo "$msg" > "$INSTALL_DIR/etc/runit/core-services/02-kmods.sh"
 echo "$msg" > "$INSTALL_DIR/etc/runit/core-services/02-udev.sh"
@@ -212,7 +212,7 @@ Documentation: $DOCS
 Description: $DESC
 PRODUCT
 
-cat "$INSTALL_DIR/etc/motd" "$INSTALL_DIR/etc/product" >  "$INSTALL_DIR/etc/void-release"
+cat "$INSTALL_DIR/etc/motd" "$INSTALL_DIR/etc/product" >  "$INSTALL_DIR/etc/gentoo-release"
 
 echo "==> Installing Guest tools in $INSTALL_DIR"
 echo "====> Running ./install.sh -i $INSTALL_DIR"

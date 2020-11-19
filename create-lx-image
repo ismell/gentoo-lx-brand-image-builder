@@ -23,13 +23,13 @@ DOCS=
 usage() {
 cat <<EOF
 
-Create an lx brand Void image from a given tar file
+Create an lx brand Gentoo image from a given tar file
 
 Usage:
   $0 -t <TARBALL> -k <KERNEL> -m <MIN_PLATFORM> -i <IMAGE_NAME> -d <DESC> -u <DOCS>
 
 Example:
-  $0 -t ~/void-20200408.tar.gz -k 5 -m "\$(uname -v | cut -d_ -f2)" -i void -d 'Void 64-bit lx-brand image.'
+  $0 -t ~/gentoo-20200408.tar.gz -k 5 -m "\$(uname -v | cut -d_ -f2)" -i gentoo -d 'Gentoo 64-bit lx-brand image.'
 
 OPTIONS:
   -t The full path to the tar archive
