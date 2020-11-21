@@ -30,13 +30,12 @@ usage() {
 	Install and modify Gentoo in a given directory in a given directory using a given mirror
 
 	Usage:
-	  $0 -a <arch> -d <dir> -m <mirror> -i <img> -p <name> -D <desc> -u <url>
+	  $0 -f <flavor> -d <dir> -m <mirror> -i <img> -p <name> -D <desc> -u <url>
 
 	Example:
-	  $0 -a x86_64-musl -d /data/gentoo -m https://alpha.de.repo.gentoolinux.org -i gentoo -p "Gentoo Linux" -D "Gentoo 64-bit lx-brand image." -u https://docs.joyent.com/images/container-native-linux
-
+	  $0 -f amd64-hardened+nomultilib -d /data/gentoo -i gentoo -p "Gentoo Linux" -D "Gentoo 64-bit lx-brand image." -u https://docs.joyent.com/images/container-native-linux
 	OPTIONS:
-	  -a <arch>     Gentoo Linux arch to install - must be 'x86_64' (glibc) or 'x86_64-musl' (musl)
+	  -f <flavor>   Stage 3 flavor: amd64, amd64-hardened+nomultilib,amd64-hardened, amd64-musl-hardened, amd64-musl-vanilla, amd64-nomultilib, amd64-systemd, amd64-uclibc-hardened, amd64-uclibc-vanilla  
 	  -D <desc>     A description for the image. This is used in the image manifest and the /etc/product file.
 	  -d <dir>      A path to the install directory
 	  -h            Show this message and exit
@@ -48,23 +47,23 @@ usage() {
 	EOF
 }
 
-ARCH=
+FLAVOR=
 INSTALL_DIR=
-MIRROR=
+MIRROR="https://bouncer.gentoo.org"
 IMAGE_NAME=
 NAME=
 DESC=
 DOCS=
 
-while getopts 'ha:d:m:i:p:D:u:' OPTION
+while getopts 'hf:d:m:i:p:D:u:' OPTION
 do
 	case $OPTION in
 		h)
 			usage
 			exit 0
 			;;
-		a)
-			ARCH=$OPTARG
+		f)
+			FLAVOR="$OPTARG"
 			;;
 		d)
 			INSTALL_DIR=$OPTARG
@@ -92,7 +91,7 @@ do
 done
 
 
-[[ -n $ARCH ]]        || fatal 'Error: missing arch (-a) value x86_64 || x86_64-musl'
+[[ -n $FLAVOR ]]      || fatal 'Error: missing flavor (-f) value amd64, amd64-nomultilib, amd64-hardened, amd64-hardened+nomultilib'
 [[ -n $INSTALL_DIR ]] || fatal 'Error: missing install directory (-d) value'
 [[ -n $MIRROR ]]      || fatal 'Error: missing mirror (-m) url value'
 [[ -n $IMAGE_NAME ]]  || fatal 'Error: missing image name (-i) value'
@@ -106,15 +105,17 @@ if [[ ${INSTALL_DIR:0:1} != '/' ]]; then
 	INSTALL_DIR=$PWD/$INSTALL_DIR
 fi
 
+INSTALL_DIR="$(realpath "$INSTALL_DIR")"
+
 echo "==> Installing Gentoo into $INSTALL_DIR"
 
 if [[ -d $INSTALL_DIR ]]; then
 	echo "====> Found previous chroot. Deleting and creating a new one."
 
-	for dir in proc sys; do
+	for dir in proc sys dev; do
 		fulldir=$INSTALL_DIR/$dir
 		if mount | grep -q "$fulldir"; then
-			umount "$fulldir"
+			umount -R "$fulldir"
 		fi
 	done
 
@@ -131,67 +132,53 @@ fi
 
 cd tmp/
 
-# download static xbps tools to install the base install
-wget -O - "$MIRROR/static/xbps-static-latest.$(uname -m)-musl.tar.xz" | tar Jx
-bindir=$PWD/usr/bin
+URL_BASE="${MIRROR}/fetch/root/all/releases/amd64/autobuilds"
+LATEST_TXT="${URL_BASE}/latest-stage3-${FLAVOR}.txt"
 
-echo "==> Adding gentoo keys"
-mkdir -p "$INSTALL_DIR/var/db/xbps/keys"
-cp ../keys/* "$INSTALL_DIR/var/db/xbps/keys/"
+wget -O latest.txt "$LATEST_TXT"
+
+LATEST_TAR="$(sed -e '/^#/d' latest.txt | cut -d ' ' -f 1)"
+LATEST_DIGEST_SIG="${LATEST_TAR}.DIGESTS.asc"
+STAGE3_TAR="$(basename "${LATEST_TAR}")"
+STAGE3_DIGEST_SIG="${STAGE3_TAR}.DIGESTS.asc"
+STAGE3_DIGEST="${STAGE3_TAR}.DIGESTS"
+
+wget -N "${URL_BASE}/${LATEST_TAR}"
+wget -N "${URL_BASE}/${LATEST_TAR}.CONTENTS.gz"
+wget -N "${URL_BASE}/${LATEST_DIGEST_SIG}"
+
+echo "===> Verifying Gentoo base from $MIRROR"
+
+# https://www.gentoo.org/downloads/signatures/
+gpg --keyserver hkps://keys.gentoo.org --recv-keys 13EBBDBEDE7A12775DFDB1BABB572E0E2D182910
+
+gpg --verify "${STAGE3_DIGEST_SIG}"
+
+rm -f "${STAGE3_DIGEST}"
+gpg --output "${STAGE3_DIGEST}" --decrypt "${STAGE3_DIGEST_SIG}"
+
+grep -A 1 SHA512 --no-group-separator "${STAGE3_DIGEST}" > "${STAGE3_TAR}.sha512"
+
+sha512sum -c "${STAGE3_TAR}.sha512"
 
 echo "===> Installing Gentoo base from $MIRROR"
-#  "--repository=$MIRROR/current/musl" \
-XBPS_ARCH=$ARCH "$bindir/xbps-install.static" -yMU \
-	"--repository=$MIRROR/current" \
-	-r "$INSTALL_DIR" \
-	base-minimal \
-	ca-certificates \
-	bash \
-	jq \
-	curl \
-	gettext \
-	less \
-	man \
-	openssh \
-	tzdata \
-	vim \
-	pam \
-	wget \
-	ncurses \
-	iproute2 \
-	iputils
 
-chroot "$INSTALL_DIR" xbps-reconfigure -a
+tar xpf "${STAGE3_TAR}" --xattrs-include='*.*' --numeric-owner -C "$INSTALL_DIR"
 
-echo '==> Setting libc locale to en_US UTF8'
-echo 'en_US.UTF-8 UTF-8' >> "$INSTALL_DIR/etc/default/libc-locales"
-chroot "$INSTALL_DIR" xbps-reconfigure -f glibc-locales
+mount --types proc /proc "${INSTALL_DIR}/proc"
+mount --rbind /sys "${INSTALL_DIR}/sys"
+mount --make-rslave "${INSTALL_DIR}/sys"
+mount --rbind /dev "${INSTALL_DIR}/dev"
+mount --make-rslave "${INSTALL_DIR}/dev"
 
-echo "==> Clearing unecessary runit services"
-msg='# cleared by gentoo-lx-brand-image-builder'
-echo "$msg" > "$INSTALL_DIR/etc/runit/core-services/01-static-devnodes.sh"
-echo "$msg" > "$INSTALL_DIR/etc/runit/core-services/02-kmods.sh"
-echo "$msg" > "$INSTALL_DIR/etc/runit/core-services/02-udev.sh"
-echo "$msg" > "$INSTALL_DIR/etc/runit/core-services/03-filesystems.sh"
+cp -fv ../setup.sh "${INSTALL_DIR}"
+chmod +x "${INSTALL_DIR}/setup.sh"
 
-echo "==> linking required runit services"
-chroot "$INSTALL_DIR" ln -s /etc/sv/sshd /etc/runit/runsvdir/default
+chroot "$INSTALL_DIR" /setup.sh
 
-echo "==> removing agetty from default"
-for i in {1..6}; do
-	touch "$INSTALL_DIR/etc/sv/agetty-tty$i/down"
-	rm -rf "$INSTALL_DIR/etc/runit/runsvdir/default/agetty-tty$i"
-done
-
-# Set random root pw
-chroot "$INSTALL_DIR" passwd -d root
-
-echo "==> Setting TZ to UTC"
-chroot "$INSTALL_DIR" ln -sf /usr/share/zoneinfo/UTC /etc/localtime
-
-echo "==> Disabling PasswordAuthentication"
-sed -ri s/^#?PasswordAuthentication\ no/PasswordAuthentication\ no/  -i "$INSTALL_DIR/etc/ssh/sshd_config"
-sed -ri s/^#?PasswordAuthentication\ yes/PasswordAuthentication\ no/ -i "$INSTALL_DIR/etc/ssh/sshd_config"
+umount "${INSTALL_DIR}/proc"
+umount -R "${INSTALL_DIR}/sys"
+umount -R "${INSTALL_DIR}/dev"
 
 echo "==> Creating /etc/motd"
 cat << MOTD > "$INSTALL_DIR/etc/motd"
@@ -218,7 +205,8 @@ echo "==> Installing Guest tools in $INSTALL_DIR"
 echo "====> Running ./install.sh -i $INSTALL_DIR"
 (
 	cd "../$GUESTTOOLS"
-	./install.sh -i "$INSTALL_DIR"
+	# TODO: Use portage to install this...
+	# ./install.sh -i "$INSTALL_DIR"
 )
 
 echo "==> Saving installation as $TARGET. This may take a few minutes."
