@@ -135,7 +135,7 @@ cd tmp/
 URL_BASE="${MIRROR}/fetch/root/all/releases/amd64/autobuilds"
 LATEST_TXT="${URL_BASE}/latest-stage3-${FLAVOR}.txt"
 
-wget -O latest.txt "$LATEST_TXT"
+wget -O latest.txt "${LATEST_TXT}"
 
 LATEST_TAR="$(sed -e '/^#/d' latest.txt | cut -d ' ' -f 1)"
 LATEST_DIGEST_SIG="${LATEST_TAR}.DIGESTS.asc"
@@ -171,10 +171,12 @@ mount --make-rslave "${INSTALL_DIR}/sys"
 mount --rbind /dev "${INSTALL_DIR}/dev"
 mount --make-rslave "${INSTALL_DIR}/dev"
 
+cp -rfv ../root/* "${INSTALL_DIR}"
+
 cp -fv ../setup.sh "${INSTALL_DIR}"
 chmod +x "${INSTALL_DIR}/setup.sh"
-
 chroot "$INSTALL_DIR" /setup.sh
+rm -v "${INSTALL_DIR}/setup.sh"
 
 umount "${INSTALL_DIR}/proc"
 umount -R "${INSTALL_DIR}/sys"
@@ -201,13 +203,8 @@ PRODUCT
 
 cat "$INSTALL_DIR/etc/motd" "$INSTALL_DIR/etc/product" >  "$INSTALL_DIR/etc/gentoo-release"
 
-echo "==> Installing Guest tools in $INSTALL_DIR"
-echo "====> Running ./install.sh -i $INSTALL_DIR"
-(
-	cd "../$GUESTTOOLS"
-	# TODO: Use portage to install this...
-	# ./install.sh -i "$INSTALL_DIR"
-)
+# This is a hack to allow the gentoo image to boot
+cp "$INSTALL_DIR/etc/gentoo-release" "$INSTALL_DIR/etc/void-release"
 
 echo "==> Saving installation as $TARGET. This may take a few minutes."
 cd "$INSTALL_DIR"

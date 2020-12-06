@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [[ -n $TRACE ]]; then
+if [[ -v TRACE ]] && [[ -n $TRACE ]]; then
 	export PS4='[\D{%FT%TZ}] ${BASH_SOURCE}:${LINENO}: ${FUNCNAME[0]:+${FUNCNAME[0]}(): }'
 	set -o xtrace
 fi
@@ -9,7 +9,8 @@ fi
 # See https://wiki.gentoo.org/wiki/Handbook:AMD64/Installation/Base
 
 source /etc/profile
-export PS1="(chroot) ${PS1}"
+
+set -eu -o pipefail
 
 echo '==> Using 8.8.8.8 as nameserver'
 cat >/etc/resolv.conf <<EOL
@@ -48,9 +49,33 @@ source /etc/profile
 # Set random root pw
 passwd -d root
 
+echo '==> Updating system'
+emerge -1vuUDj @world
+emerge --depclean
+
 echo '==> Installing default packages'
 emerge -tjv \
 	app-editors/vim \
-	app-portage/gentoolkit
+	app-portage/gentoolkit \
+	dev-vcs/git \
+	sys-apps/sdc-vmtools
 
+# We need to patch openrc to support container=zone
+# TODO: Send patch upstream
+echo '==> Rebuilding OpenRC'
+emerge -j sys-apps/openrc
+
+rc-update add sdc-init boot
 rc-update add sshd default
+rc-update del kmod-static-nodes sysinit
+rc-update del udev sysinit
+rc-update del udev-trigger sysinit
+
+echo '==> Disabling ttys'
+sed -E -i \
+    -e 's/^(c[0-9])/#\1/' \
+    -e '/# TERMINALS/a # LX zones do not support ttys' \
+    /etc/inittab
+
+# Remove our temp version. I it will be regenerated on 1st boot.
+rm /etc/resolv.conf
