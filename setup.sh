@@ -77,5 +77,9 @@ sed -E -i \
     -e '/# TERMINALS/a # LX zones do not support ttys' \
     /etc/inittab
 
+echo '==> Setting FEATURES="nostrip"' 
+echo '# https://github.com/joyent/smartos-live/issues/967' >> /etc/portage/make.conf
+echo 'FEATURES="nostrip"' >> /etc/portage/make.conf
+
 # Remove our temp version. I it will be regenerated on 1st boot.
 rm /etc/resolv.conf
