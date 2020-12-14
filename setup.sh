@@ -58,6 +58,7 @@ emerge -tjv \
 	app-editors/vim \
 	app-portage/gentoolkit \
 	dev-vcs/git \
+	app-shells/bash-completion \
 	sys-apps/sdc-vmtools
 
 # We need to patch openrc to support container=zone
