@@ -1,0 +1,2 @@
+# newnet provides the net dependency in an LX zone
+sys-apps/openrc -netifrc newnet

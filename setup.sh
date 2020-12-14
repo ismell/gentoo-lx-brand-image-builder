@@ -61,7 +61,7 @@ emerge -tjv \
 	sys-apps/sdc-vmtools
 
 # We need to patch openrc to support container=zone
-# TODO: Send patch upstream
+# https://github.com/OpenRC/openrc/pull/390
 echo '==> Rebuilding OpenRC'
 emerge -j sys-apps/openrc
 
@@ -77,9 +77,13 @@ sed -E -i \
     -e '/# TERMINALS/a # LX zones do not support ttys' \
     /etc/inittab
 
+echo '==> Disabling portage sandbox'
+echo '# LX does not support the sandbox' >> /etc/portage/make.conf
+echo 'FEATURES="-ipc-sandbox -pid-sandbox -network-sandbox"' >> /etc/portage/make.conf
+
 echo '==> Setting FEATURES="nostrip"' 
 echo '# https://github.com/joyent/smartos-live/issues/967' >> /etc/portage/make.conf
-echo 'FEATURES="nostrip"' >> /etc/portage/make.conf
+echo 'FEATURES="${FEATURES} nostrip"' >> /etc/portage/make.conf
 
-# Remove our temp version. I it will be regenerated on 1st boot.
+# Remove our temp version. It will be regenerated on 1st boot.
 rm /etc/resolv.conf

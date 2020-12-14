@@ -1,4 +1,4 @@
-From 226827593c678d92cf4b53f06637383552a31290 Mon Sep 17 00:00:00 2001
+From 0b463e2ab6762b5100fa5b72f9a1dde63b6e24c9 Mon Sep 17 00:00:00 2001
 From: Raul E Rangel <ismell@ismell.org>
 Date: Thu, 3 Dec 2020 10:56:46 -0700
 Subject: [PATCH 2/2] Add support for running as an Illumos LX zone
@@ -16,7 +16,6 @@ Signed-off-by: Raul E Rangel <ismell@ismell.org>
  init.d/devfs.in             | 2 +-
  init.d/dmesg.in             | 2 +-
  init.d/fsck.in              | 2 +-
- init.d/hostname.in          | 2 +-
  init.d/hwclock.in           | 2 +-
  init.d/keymaps.in           | 2 +-
  init.d/localmount.in        | 2 +-
@@ -25,6 +24,7 @@ Signed-off-by: Raul E Rangel <ismell@ismell.org>
  init.d/mount-ro.in          | 2 +-
  init.d/net-online.in        | 2 +-
  init.d/netmount.in          | 2 +-
+ init.d/network.in           | 2 +-
  init.d/numlock.in           | 2 +-
  init.d/procfs.in            | 2 +-
  init.d/root.in              | 2 +-
@@ -130,19 +130,6 @@ index 7052d808..085ace55 100644
  }
  
  _abort() {
-diff --git a/init.d/hostname.in b/init.d/hostname.in
-index 823008fd..d14be92e 100644
---- a/init.d/hostname.in
-+++ b/init.d/hostname.in
-@@ -14,7 +14,7 @@ description="Sets the hostname of the machine."
- depend()
- {
- 	after clock
--	keyword -docker -lxc -prefix -systemd-nspawn
-+	keyword -docker -lxc -prefix -systemd-nspawn -zone
- }
- 
- start()
 diff --git a/init.d/hwclock.in b/init.d/hwclock.in
 index 024bff0c..e6ef436c 100644
 --- a/init.d/hwclock.in
@@ -247,6 +234,19 @@ index 96f5d3e0..b7591585 100644
  }
  
  start()
+diff --git a/init.d/network.in b/init.d/network.in
+index fa9f8de0..82b9e333 100644
+--- a/init.d/network.in
++++ b/init.d/network.in
+@@ -22,7 +22,7 @@ depend()
+ 	if [ -n "$(interfaces)" ]; then
+ 		provide net
+ 	fi
+-	keyword -jail -prefix -vserver
++	keyword -jail -prefix -vserver -zone
+ }
+ 
+ uniqify()
 diff --git a/init.d/numlock.in b/init.d/numlock.in
 index 6c33c95f..5c399dcd 100644
 --- a/init.d/numlock.in
